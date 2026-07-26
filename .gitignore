@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+bhoomi.db
+model.pkl
+videos/
+demo_recording.webm
+detailed_features_demo.webm
+.DS_Store

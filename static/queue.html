@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bhoomi Rakshak - Verification Queue</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 1000px;">
+        <div class="header">
+            <h1>Verification Queue</h1>
+            <div class="nav-links">
+                <a href="/">&larr; Back to Intake</a>
+            </div>
+        </div>
+
+        <div class="form-group" style="max-width: 300px;">
+            <label for="officer_name">Your Name (Officer ID)</label>
+            <input type="text" id="officer_name" value="Officer Sharma">
+        </div>
+
+        <div id="sys-message" class="message"></div>
+
+        <div id="queue-container">
+            <p>Loading queue...</p>
+        </div>
+    </div>
+
+    <script>
+        const queueContainer = document.getElementById('queue-container');
+        const sysMsg = document.getElementById('sys-message');
+
+        function showMessage(msg, isError = false) {
+            sysMsg.textContent = msg;
+            sysMsg.className = 'message ' + (isError ? 'error' : 'success');
+            sysMsg.style.display = 'block';
+            setTimeout(() => { sysMsg.style.display = 'none'; }, 5000);
+        }
+
+        async function loadQueue() {
+            try {
+                const res = await fetch('/api/queue');
+                const claims = await res.json();
+                renderQueue(claims);
+            } catch (err) {
+                queueContainer.innerHTML = `<div class="message error">Failed to load queue.</div>`;
+            }
+        }
+
+        function renderQueue(claims) {
+            if (claims.length === 0) {
+                queueContainer.innerHTML = '<p>No flagged claims pending verification.</p>';
+                return;
+            }
+
+            let html = '';
+            claims.forEach(c => {
+                let flagsHtml = c.flags.map(f => `<div class="flag-annotation">${f.reason}</div>`).join('');
+                
+                let comparisonHtml = '';
+                // Find if any flag has a matched claim to show side by side
+                const matchedFlag = c.flags.find(f => f.matched_claim_data);
+                if (matchedFlag) {
+                    const m = matchedFlag.matched_claim_data;
+                    comparisonHtml = `
+                        <div class="comparison-grid">
+                            <div class="comparison-col">
+                                <h4>New Claim (#${c.id})</h4>
+                                <div class="data-row"><span>Survey No:</span> <span class="survey-no">${c.survey_no}</span></div>
+                                <div class="data-row"><span>Name:</span> <span>${c.cultivator_name}</span></div>
+                                <div class="data-row"><span>Crop:</span> <span>${c.claimed_crop}</span></div>
+                                <div class="data-row"><span>Extent:</span> <span>${c.claimed_extent}</span></div>
+                            </div>
+                            <div class="comparison-col">
+                                <h4>Matched Claim (#${m.id})</h4>
+                                <div class="data-row"><span>Survey No:</span> <span class="survey-no">${m.survey_no}</span></div>
+                                <div class="data-row"><span>Name:</span> <span>${m.cultivator_name}</span></div>
+                                <div class="data-row"><span>Crop:</span> <span>${m.claimed_crop}</span></div>
+                                <div class="data-row"><span>Extent:</span> <span>${m.claimed_extent}</span></div>
+                                <div class="data-row"><span>Status:</span> <span>${m.status}</span></div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Just show the current claim data
+                    comparisonHtml = `
+                        <div class="comparison-grid">
+                            <div class="comparison-col">
+                                <h4>Claim Details</h4>
+                                <div class="data-row"><span>Survey No:</span> <span class="survey-no">${c.survey_no}</span></div>
+                                <div class="data-row"><span>Name:</span> <span>${c.cultivator_name}</span></div>
+                                <div class="data-row"><span>Crop:</span> <span>${c.claimed_crop}</span></div>
+                                <div class="data-row"><span>Extent:</span> <span>${c.claimed_extent}</span></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <div class="queue-item" id="claim-${c.id}">
+                        <div class="queue-header">
+                            <h3>Claim #${c.id} - ${c.survey_no}</h3>
+                            <span>Submitted: ${new Date(c.created_at).toLocaleString()}</span>
+                        </div>
+                        ${flagsHtml}
+                        ${comparisonHtml}
+                        
+                        <div class="decision-panel">
+                            <button class="btn" onclick="lockClaim(${c.id})">Lock for Review</button>
+                        </div>
+                    </div>
+                `;
+            });
+            queueContainer.innerHTML = html;
+        }
+
+        async function lockClaim(claimId) {
+            const officerName = document.getElementById('officer_name').value.trim();
+            if (!officerName) {
+                showMessage("Please enter your name first.", true);
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/queue/${claimId}/lock`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ officer_name: officerName })
+                });
+                
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                showMessage(`Claim locked successfully.`);
+                
+                // Replace Lock button with Decision Form
+                const panel = document.querySelector(`#claim-${claimId} .decision-panel`);
+                panel.innerHTML = `
+                    <div class="form-group">
+                        <label>Officer Remark (Required)</label>
+                        <textarea id="remark-${claimId}" rows="3" required></textarea>
+                    </div>
+                    <button class="btn btn-secondary" onclick="decideClaim(${claimId}, 'approved')">Approve Claim</button>
+                    <button class="btn btn-danger" onclick="decideClaim(${claimId}, 'rejected')">Reject Claim</button>
+                `;
+
+            } catch(err) {
+                showMessage("Lock Failed: " + err.message, true);
+                // Refresh queue in case someone else locked/decided it
+                setTimeout(loadQueue, 2000);
+            }
+        }
+
+        async function decideClaim(claimId, verdict) {
+            const officerName = document.getElementById('officer_name').value.trim();
+            const remark = document.getElementById(`remark-${claimId}`).value.trim();
+            
+            if (!remark) {
+                showMessage("Remark is required to submit a decision.", true);
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/queue/${claimId}/decide`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ officer_name: officerName, verdict, remark })
+                });
+                
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                showMessage(data.message);
+                document.getElementById(`claim-${claimId}`).remove();
+
+            } catch(err) {
+                showMessage("Decision Failed: " + err.message, true);
+                setTimeout(loadQueue, 2000);
+            }
+        }
+
+        // Init
+        loadQueue();
+    </script>
+</body>
+</html>

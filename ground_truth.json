@@ -1,0 +1,52 @@
+[
+    {
+        "claim_id_1": 41,
+        "claim_id_2": 42,
+        "type": "exact"
+    },
+    {
+        "claim_id_1": 43,
+        "claim_id_2": 44,
+        "type": "exact"
+    },
+    {
+        "claim_id_1": 45,
+        "claim_id_2": 46,
+        "type": "exact"
+    },
+    {
+        "claim_id_1": 47,
+        "claim_id_2": 48,
+        "type": "exact"
+    },
+    {
+        "claim_id_1": 49,
+        "claim_id_2": 50,
+        "type": "exact"
+    },
+    {
+        "claim_id_1": 51,
+        "claim_id_2": 52,
+        "type": "near"
+    },
+    {
+        "claim_id_1": 53,
+        "claim_id_2": 54,
+        "type": "near"
+    },
+    {
+        "claim_id_1": 55,
+        "claim_id_2": 56,
+        "type": "near"
+    },
+    {
+        "claim_id_1": 57,
+        "claim_id_2": 58,
+        "type": "near"
+    },
+    {
+        "claim_id_1": 59,
+        "claim_id_2": 60,
+        "type": "near"
+    }
+]

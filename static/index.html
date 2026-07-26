@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bhoomi Rakshak - Claim Intake</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Claim Intake Register</h1>
+            <div class="nav-links">
+                <a href="/queue">Verification Queue &rarr;</a>
+            </div>
+        </div>
+        
+        <div id="sys-message" class="message"></div>
+
+        <form id="claim-form">
+            <div class="form-group">
+                <label for="survey_no">Survey Number (Ledger Code)</label>
+                <input type="text" id="survey_no" name="survey_no" required autocomplete="off">
+            </div>
+
+            <div id="live-register-data" class="live-data" style="display: none;">
+                <h3>Register Data (Ground Truth)</h3>
+                <div class="data-row"><span>Cultivator:</span> <span id="reg-name"></span></div>
+                <div class="data-row"><span>Crop:</span> <span id="reg-crop"></span></div>
+                <div class="data-row"><span>Extent (Acres):</span> <span id="reg-extent"></span></div>
+            </div>
+
+            <div class="form-group">
+                <label for="cultivator_name">Claimant Name (As Written)</label>
+                <input type="text" id="cultivator_name" name="cultivator_name" required>
+            </div>
+
+            <div class="form-group">
+                <label for="claimed_crop">Claimed Crop</label>
+                <select id="claimed_crop" name="claimed_crop" required>
+                    <option value="">-- Select Crop --</option>
+                    <option value="Wheat">Wheat</option>
+                    <option value="Rice">Rice</option>
+                    <option value="Cotton">Cotton</option>
+                    <option value="Sugarcane">Sugarcane</option>
+                    <option value="Maize">Maize</option>
+                    <option value="Soybean">Soybean</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="claimed_extent">Claimed Extent (Acres)</label>
+                <input type="number" id="claimed_extent" name="claimed_extent" step="0.01" min="0.01" required>
+            </div>
+
+            <button type="submit" class="btn" id="submit-btn">File Claim</button>
+        </form>
+
+        <div id="flags-container" style="margin-top: 2rem;"></div>
+    </div>
+
+    <script>
+        let typingTimer;
+        const surveyInput = document.getElementById('survey_no');
+        const liveData = document.getElementById('live-register-data');
+        const sysMsg = document.getElementById('sys-message');
+        const flagsContainer = document.getElementById('flags-container');
+
+        function showMessage(msg, isError = false) {
+            sysMsg.textContent = msg;
+            sysMsg.className = 'message ' + (isError ? 'error' : 'success');
+            sysMsg.style.display = 'block';
+        }
+
+        surveyInput.addEventListener('input', () => {
+            clearTimeout(typingTimer);
+            const val = surveyInput.value.trim();
+            liveData.style.display = 'none';
+            sysMsg.style.display = 'none';
+            
+            if (val.length > 2) {
+                typingTimer = setTimeout(() => {
+                    fetch(`/api/survey/${val}`)
+                        .then(res => {
+                            if (!res.ok) throw new Error('Survey not in register');
+                            return res.json();
+                        })
+                        .then(data => {
+                            document.getElementById('reg-name').textContent = data.cultivator_name;
+                            document.getElementById('reg-crop').textContent = data.crop;
+                            document.getElementById('reg-extent').textContent = data.extent;
+                            liveData.style.display = 'block';
+                        })
+                        .catch(err => {
+                            showMessage("Warning: " + err.message, true);
+                        });
+                }, 500);
+            }
+        });
+
+        document.getElementById('claim-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+            sysMsg.style.display = 'none';
+            flagsContainer.innerHTML = '';
+
+            const payload = {
+                survey_no: document.getElementById('survey_no').value.trim(),
+                cultivator_name: document.getElementById('cultivator_name').value.trim(),
+                claimed_crop: document.getElementById('claimed_crop').value,
+                claimed_extent: parseFloat(document.getElementById('claimed_extent').value)
+            };
+
+            try {
+                const res = await fetch('/api/claims', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || 'Failed to file claim');
+                }
+
+                showMessage(`Claim filed successfully. Claim ID: ${data.claim_id}`);
+                
+                if (data.flags && data.flags.length > 0) {
+                    let flagsHtml = '<h3>System Flags Raised</h3>';
+                    data.flags.forEach(f => {
+                        flagsHtml += `<div class="flag-annotation">${f.reason}</div>`;
+                    });
+                    flagsContainer.innerHTML = flagsHtml;
+                } else {
+                    flagsContainer.innerHTML = '<div class="message success">No flags raised. Claim is clean.</div>';
+                }
+                
+                document.getElementById('claim-form').reset();
+                liveData.style.display = 'none';
+
+            } catch(err) {
+                showMessage(err.message, true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'File Claim';
+            }
+        });
+    </script>
+</body>
+</html>
