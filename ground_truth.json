@@ -48,5 +48,30 @@
         "claim_id_1": 59,
         "claim_id_2": 60,
         "type": "near"
+    },
+    {
+        "claim_id_1": 61,
+        "claim_id_2": 62,
+        "type": "exact"
+    },
+    {
+        "claim_id_1": 63,
+        "claim_id_2": 64,
+        "type": "exact"
+    },
+    {
+        "claim_id_1": 65,
+        "claim_id_2": 66,
+        "type": "exact"
+    },
+    {
+        "claim_id_1": 67,
+        "claim_id_2": 68,
+        "type": "exact"
+    },
+    {
+        "claim_id_1": 69,
+        "claim_id_2": 70,
+        "type": "exact"
     }
 ]

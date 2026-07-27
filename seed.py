@@ -201,6 +201,34 @@ def seed():
         })
         ground_truth_duplicates.append({"claim_id_1": c1_id, "claim_id_2": c2_id, "type": "near"})
 
+    # 6. Land Dispute Claims (~5 pairs)
+    # Entirely different cultivator name trying to claim an already claimed survey number
+    for _ in range(5):
+        reg = random.choice(normal_register)
+        
+        c1_id = next_claim_id
+        next_claim_id += 1
+        claims_to_insert.append({
+            "id": c1_id,
+            "survey_no": reg['survey_no'],
+            "cultivator_name": reg['cultivator']['name'],
+            "claimed_crop": reg['crop'],
+            "claimed_extent": round(reg['extent'], 2)
+        })
+        
+        c2_id = next_claim_id
+        next_claim_id += 1
+        completely_different_name = random.choice([n for n in base_names if n != reg['cultivator']['name']])
+        claims_to_insert.append({
+            "id": c2_id,
+            "survey_no": reg['survey_no'],
+            "cultivator_name": completely_different_name,
+            "claimed_crop": reg['crop'],
+            "claimed_extent": round(reg['extent'], 2)
+        })
+        # Note: We can add these to ground_truth_duplicates as "exact" since the survey number is identical
+        ground_truth_duplicates.append({"claim_id_1": c1_id, "claim_id_2": c2_id, "type": "exact"})
+
     # Shuffle claims to make it realistic (so duplicates aren't always adjacent)
     # But keep their assigned IDs intact
     for i, c in enumerate(claims_to_insert):

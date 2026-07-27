@@ -4,7 +4,6 @@ import jellyfish
 import itertools
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import LeaveOneOut
 import joblib
 
 DB_FILE = 'bhoomi.db'
@@ -89,19 +88,24 @@ def build_dataset():
 def train_and_evaluate():
     X, y, pairs_info = build_dataset()
     
-    # We use LOO to evaluate properly, focusing on near-duplicates.
-    # The dataset consists of exact duplicates, near duplicates, and non-duplicates.
-    loo = LeaveOneOut()
+    # Shuffle the dataset to ensure positive cases are distributed
+    indices = np.arange(len(X))
+    np.random.seed(42)
+    np.random.shuffle(indices)
+    X = X[indices]
+    y = y[indices]
+    pairs_info = [pairs_info[i] for i in indices]
+    
+    # Implement an 80/20 split
+    split_idx = int(len(X) * 0.8)
+    
+    X_train, X_test = X[:split_idx], X[split_idx:]
+    y_train, y_test = y[:split_idx], y[split_idx:]
+    pairs_info_test = pairs_info[split_idx:]
+    
     model = LogisticRegression(class_weight='balanced', random_state=42)
-    
-    y_pred = np.zeros_like(y)
-    
-    for train_index, test_index in loo.split(X):
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
-        
-        model.fit(X_train, y_train)
-        y_pred[test_index] = model.predict(X_test)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
         
     # Evaluate honest numbers
     near_dup_caught = 0
@@ -110,10 +114,10 @@ def train_and_evaluate():
     false_positives = 0
     total_negatives = 0
     
-    for i in range(len(y)):
-        actual = y[i]
+    for i in range(len(y_test)):
+        actual = y_test[i]
         predicted = y_pred[i]
-        is_near_dup = pairs_info[i][2]
+        is_near_dup = pairs_info_test[i][2]
         
         if is_near_dup:
             total_near_dup += 1
@@ -125,9 +129,17 @@ def train_and_evaluate():
             if predicted == 1:
                 false_positives += 1
                 
-    print(f"--- Evaluation Results (Leave-One-Out CV) ---")
-    print(f"Near-duplicate pairs caught: {near_dup_caught} out of {total_near_dup}")
-    print(f"False positive pairs wrongly flagged: {false_positives} out of {total_negatives} non-duplicate pairs scanned")
+    print(f"--- Evaluation Results (80/20 Split) ---")
+    print(f"Near-duplicate pairs caught in test set: {near_dup_caught} out of {total_near_dup}")
+    print(f"False positive pairs wrongly flagged in test set: {false_positives} out of {total_negatives} non-duplicate pairs scanned")
+    print("\n--- Why did the accuracy drop or behave erratically? ---")
+    print("When we switch from Leave-One-Out (which evaluates on the entire dataset) to a strict")
+    print("80/20 split, the evaluation metrics can drop or fluctuate significantly. Because our")
+    print("'near-duplicate' positive cases are extremely rare, a random 80/20 split might place")
+    print("very few of them in the test set, making the recall metric highly sensitive to missing")
+    print("even a single one. It also reduces the training data, lowering the model's ability to generalize.")
+    print("In small, highly imbalanced datasets, holding back 20% leads to high variance in metrics.")
+    print("----------------------------------------------------------\n")
     
     # Train final model on all data and save
     final_model = LogisticRegression(class_weight='balanced', random_state=42)
