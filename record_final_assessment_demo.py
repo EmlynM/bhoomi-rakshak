@@ -106,16 +106,20 @@ async def record_demo():
         await page.wait_for_timeout(1000)
         await show_caption(page, "Finally, let's submit a clean claim for a valid survey number.", 3500)
         
-        # Dynamically fetch an unclaimed survey number
+        # Dynamically fetch an unclaimed 4-digit survey number to trigger JS lookup
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
-        cursor.execute("SELECT s.survey_no FROM survey_numbers s WHERE s.survey_no NOT IN (SELECT survey_no FROM claims) LIMIT 1;")
+        cursor.execute("SELECT s.survey_no FROM survey_numbers s WHERE length(s.survey_no) = 4 AND s.survey_no NOT IN (SELECT survey_no FROM claims) LIMIT 1;")
         valid_unclaimed_survey = cursor.fetchone()[0]
         conn.close()
         
         await page.fill("#survey_no", str(valid_unclaimed_survey))
+        await page.wait_for_timeout(500)
+        await page.fill("#cultivator_name", "Evaluator Demo")
+        await page.select_option("#claimed_crop", label="Wheat")
+        await page.fill("#claimed_extent", "5.5")
+        
         await page.wait_for_timeout(1000)
-        await show_caption(page, "Ground-truth data is fetched instantly.", 2000)
         
         # We need to fill in valid values to submit
         # The JS auto-fills, we just need to click submit
