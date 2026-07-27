@@ -175,7 +175,7 @@ input[name="survey_no"], .survey-no {
 
 /* Buttons */
 .btn {
-    background: linear-gradient(to right, var(--text-navy), #1a2a5c);
+    background: linear-gradient(to right, #2e7d32, #1b5e20);
     color: var(--white);
     border: none;
     border-radius: 6px;
@@ -195,8 +195,8 @@ input[name="survey_no"], .survey-no {
 
 .btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(11, 19, 43, 0.3);
-    background: linear-gradient(to right, #1a2a5c, var(--text-navy));
+    box-shadow: 0 6px 16px rgba(46, 125, 50, 0.3);
+    background: linear-gradient(to right, #1b5e20, #2e7d32);
 }
 
 .btn:active {
